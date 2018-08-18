@@ -66,11 +66,17 @@ class Wg {
    *
    * @param {Object} peer - The new peer's information
    * @param {string} peer.pubkey - The public key
+   * @param {string} peer.endpoint - The endpoint
    * @param {string} peer.allowedIPs - The peer's allowed IPs
    */
   async addPeer(peer) {
     let wg = this;
-    await execAsync("wg", ["set", wg.iface, "peer", peer.pubkey, "allowed-ips", peer.allowedIPs]);
+    let args = ["set", wg.iface, "peer", peer.pubkey, "allowed-ips", peer.allowedIPs];
+    if (peer.endpoint) {
+      args.push("endpoint")
+      args.push(peer.endpoint)
+    }
+    await execAsync("wg", args);
   }
 
   async getPeers() {
