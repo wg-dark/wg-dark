@@ -4,7 +4,7 @@ wireguard darknet.
 ## usage
 ```
 $ wg-dark serve 1337
-$ wg-dark join cool.dark.net:1337
+$ wg-dark join cool.dark.net:1337 1337
 $ wg-dark refresh
 $ wg-dark [status]
 ```

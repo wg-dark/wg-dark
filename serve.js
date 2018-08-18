@@ -21,7 +21,13 @@ app.post('/join', function (req, res) {
 })
 
 app.get('/status', function (req, res) {
-  res.send('ip and peer list')
+  res.send({
+    ip : '127.0.0.1',
+    peers : [
+      '0.0.0.0:1337',
+      '1.1.1.1:31337'
+    ]
+  })
 })
 
 serveHTTP(argv.port)
