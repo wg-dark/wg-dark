@@ -2,7 +2,7 @@ const Wg = require('./wg');
 
 (async function() {
     const wg = new Wg("blah");
-    await wg.up();
+    await wg.up("10.13.37.1/24");
 
     await wg.addConfig(`
     [Peer]

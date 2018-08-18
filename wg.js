@@ -19,11 +19,11 @@ class Wg {
     this.iface = iface;
   }
 
-  async up() {
+  async up(addr) {
     let wg = this
     await execAsync("ip", ["link", "add", wg.iface, "type", "wireguard"])
     await execAsync("ip", ["link", "set", "mtu", "1420", "dev", wg.iface])
-    await execAsync("ip", ["addr", "add", "10.13.37.1/24", "dev", wg.iface])
+    await execAsync("ip", ["addr", "add", addr, "dev", wg.iface])
     await execAsync("ip", ["link", "set", wg.iface, "up"])
     // await execAsync("ip", ["route", "add", "10.13.37.0/24", "dev", wg.iface])
   }
