@@ -13,8 +13,12 @@ function serveHTTP(port) {
   })
 }
 
-app.get('/', function (req, res) {
-  res.send('Hello World')
+app.post('/join', function (req, res) {
+  res.send('joinnn')
+})
+
+app.get('/status', function (req, res) {
+  res.send('ip and peer list')
 })
 
 serveHTTP(argv.port)
