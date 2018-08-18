@@ -12,7 +12,7 @@ $ wg-dark [status]
 ## API
 ### POST /join
 ```
-{ invite : "secret", pubkey : "lolwut", port : 1337 }
+{ invite : "secret", pubkey : "lolwut" }
 ```
 
 ### GET - /status
