@@ -3,13 +3,18 @@ const parser  = require('body-parser')
 const crypto  = require('crypto')
 const express = require('express')
 const fetch   = require('node-fetch')
+const ip      = require('ip')
 
 const argv = require('minimist')(process.argv.slice(2))
 const cmd = argv._.length < 1 ? 'help' : argv._[0]
 const host = argv._.length < 2 ? undefined : argv._[1]
 const port = isNaN(argv.port) ? 1337 : argv.port
 
-const isLocal = (addr) => { return addr === '127.0.0.1' || addr === '::ffff:127.0.0.1' }
+const isAuthed = (addr) => {
+  return ip.cidrSubnet('10.13.37.0/24').contains(addr)
+    || ip.isEqual(addr, '127.0.0.1')
+    || ip.isEqual(addr, '::1')
+}
 
 function serve(host, port) {
   var invites = []
@@ -17,9 +22,9 @@ function serve(host, port) {
   app.use(parser.json())
 
   app.get('/invite', function (req, res) {
-    if (!isLocal(req.ip)) {
+    if (!isAuthed(req.ip)) {
+      console.log(`forbidden GET /invite from ${req.ip}`)
       res.status(403).send()
-      console.error(`forbidden GET /invite from ${req.ip}`)
     } else {
       var invite = crypto.randomBytes(16).toString('hex')
       invites.push(invite)
