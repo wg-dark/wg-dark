@@ -12,12 +12,12 @@ $ wg-dark [status]
 ## API
 ### POST /join
 ```
-{ invite : "secret", pubkey : "lolwut" }
+{ invite : "secret", publicKey : "lolwut" }
 ```
 
-### GET - /status
+### GET - /config
 ```
-{ ip : "10.20.30.3", peers : ["pubkey:10.20.30.1:1337", "pubkey:10.20.30.2:1337"] }
+{ address : "10.20.30.3/32", peers : [{ publicKey : "blahhhh", allowedIps : ["10.20.30.1/32"], endpoint : "1.1.1.1:1337" }] }
 ```
 
 ## license
