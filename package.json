@@ -5,6 +5,7 @@
   "scripts": {},
   "dependencies": {
     "body-parser": "^1.18.3",
+    "command-exists": "^1.2.7",
     "express": "^4.16.3",
     "minimist": "^1.2.0",
     "node-fetch": "^2.2.0"
