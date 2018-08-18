@@ -5,13 +5,7 @@
   "scripts": {},
   "dependencies": {
     "minimist": "^1.2.0",
-    "codecs": "^1.2.1",
-    "pull-stream": "^3.6.2",
-    "stream-to-pull-stream": "^1.7.2",
-    "hypercore": "^6.15.0",
-    "dat-encoding": "^5.0.1",
-    "hyperdiscovery": "^7.1.0",
-    "muxrpc": "^7.0.1"
+    "express": "^4.16.3"
   },
   "devDependencies": {}
 }
