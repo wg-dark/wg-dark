@@ -4,9 +4,10 @@ const crypto  = require('crypto')
 const express = require('express')
 const fetch   = require('node-fetch')
 const ip      = require('ip')
+const Wg      = require('./wg.js')
 
 const argv = require('minimist')(process.argv.slice(2))
-const cmd = argv._.length < 1 ? 'help' : argv._[0]
+const cmd  = argv._.length < 1 ? 'help' : argv._[0]
 const host = argv._.length < 2 ? undefined : argv._[1]
 const port = isNaN(argv.port) ? 1337 : argv.port
 
@@ -14,6 +15,19 @@ const isAuthed = (addr) => {
   return ip.cidrSubnet('10.13.37.0/24').contains(addr)
     || ip.isEqual(addr, '127.0.0.1')
     || ip.isEqual(addr, '::1')
+}
+
+function nextCidr(pubkey) {
+  return new Promise((res, rej) => {
+    const wg = new Wg('wg0')
+    wg.getPeers().then(peers => {
+      if (peers.some(peer => peer.pubkey === pubkey)) {
+        res(peers.find(peer => peer.pubkey === pubkey).ip)
+      } else {
+        res(`10.13.37.${peers.length + 2}/24`)
+      }
+    })
+  })
 }
 
 function serve(host, port) {
@@ -40,7 +54,7 @@ function serve(host, port) {
     } else {
       invites.splice(invites.indexOf(req.body.invite), 1)
       console.log(`invite ${req.body.invite} redeemed by ${req.body.pubkey}`)
-      res.status(204).send()
+      nextCidr(req.body.pubkey).then(ip => res.send(ip))
     }
   })
 
