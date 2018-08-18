@@ -16,7 +16,7 @@ function serveHTTP(port) {
 }
 
 app.post('/join', function (req, res) {
-  console.log(`alias ${req.body.alias} wanna join with pubkey ${req.body.key}`)
+  console.log(`alias ${req.body.alias} wanna join with pubkey ${req.body.key} from ip ${req.ip}:${req.body.port}`)
   res.status(204).send()
 })
 
