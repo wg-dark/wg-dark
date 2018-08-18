@@ -2,12 +2,6 @@ const execSync = require('child_process').execSync;
 const fetch = require('node-fetch');
 const commandExists = require('command-exists');
 
-function generate_keypair() {
-  let privkey = execSync("wg genkey").toString('utf8').trim();
-  let pubkey = execSync("wg pubkey", { input: privkey }).toString('utf8').trim();
-  return {privkey, pubkey};
-}
-
 (async function() {
   if (!(await commandExists('wg'))) {
     console.error('wireguard is not installed.');

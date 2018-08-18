@@ -1,4 +1,5 @@
 const execFile = require('child_process').execFile;
+const execSync = require('child_process').execSync;
 const tmp = require('tmp');
 const fs = require('fs');
 
@@ -19,12 +20,23 @@ class Wg {
     this.iface = iface;
   }
 
-  async up(addr) {
+  static generateKeypair() {
+    let privkey = execSync("wg genkey").toString('utf8').trim();
+    let pubkey = execSync("wg pubkey", { input: privkey }).toString('utf8').trim();
+    return {privkey, pubkey};
+  }
+
+  async up(privateKey, addr) {
     let wg = this
     await execAsync("ip", ["link", "add", wg.iface, "type", "wireguard"])
     await execAsync("ip", ["link", "set", "mtu", "1420", "dev", wg.iface])
     await execAsync("ip", ["addr", "add", addr, "dev", wg.iface])
     await execAsync("ip", ["link", "set", wg.iface, "up"])
+    await wg.addConfig(`
+    [Interface]
+    PrivateKey = ${privateKey}
+    ListenPort = 1337
+    `)
     // await execAsync("ip", ["route", "add", "10.13.37.0/24", "dev", wg.iface])
   }
 
@@ -57,8 +69,8 @@ class Wg {
    * @param {string} peer.allowedIPs - The peer's allowed IPs
    */
   async addPeer(peer) {
-    let wg = this
-    await execAsync("wg", ["set", wg.iface, "peer", peer.pubkey, "allowed-ips", peer.allowedIPs])
+    let wg = this;
+    await execAsync("wg", ["set", wg.iface, "peer", peer.pubkey, "allowed-ips", peer.allowedIPs]);
   }
 
   async getPeers() {
