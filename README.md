@@ -3,8 +3,8 @@ wireguard darknet.
 
 ## usage
 ```
-$ wg-dark-server cool.dark.net [--port 1337]
-$ wg-dark-server invite
+$ wg-dark-server serve cool.dark.net [--port 1337]
+$ wg-dark-server invite [--port 1337]
 $ wg-dark join cool.dark.net:1337:secret [--keyfile /tmp/key00]
 $ wg-dark [status]
 ```
