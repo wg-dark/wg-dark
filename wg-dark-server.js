@@ -18,8 +18,8 @@ function serve(host, port) {
 
   app.get('/invite', function (req, res) {
     if (!isLocal(req.ip)) {
-      console.log(`forbidden GET /invite from ${req.ip}`)
       res.status(403).send()
+      console.error(`forbidden GET /invite from ${req.ip}`)
     } else {
       var invite = crypto.randomBytes(16).toString('hex')
       invites.push(invite)
@@ -61,7 +61,7 @@ function serve(host, port) {
   if (cmd === 'serve' && host) {
     serve(host, port)
       .then(() => console.log('http up'))
-      .catch((err) => console.log(err))
+      .catch((err) => console.error(err))
   } else if (cmd === 'invite') {
     const res = await fetch(`http://localhost:${port}/invite`, { method : 'GET' })
     const body = await res.text()
