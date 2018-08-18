@@ -4,7 +4,7 @@ const commandExists = require('command-exists');
 const Wg = require('./wg')
 
 const argv = require('minimist')(process.argv.slice(2))
-const cmd  = argv._.length < 1 ? 'help' : argv._[0]
+const cmd  = argv._.length < 1 ? 'help' : argv._[0];
 
 
 (async function() {
@@ -20,18 +20,25 @@ const cmd  = argv._.length < 1 ? 'help' : argv._[0]
     const keypair = Wg.generateKeypair();
     const opts = {
       method: 'POST',
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+      },
       body: JSON.stringify({pubkey: keypair.pubkey, invite: invite[2]})
     };
 
     console.log(keypair);
 
     try {
-      const res = await fetch(`http://${invite[0]}:${invite[1]}/join`, opts);
+      const url = `http://${invite[0]}:${invite[1]}/join`
+      console.log(url)
+      console.log(opts)
+      const res = await fetch(url, opts);
+      console.log(res.status)
       const json = await res.json();
       wg.up(keypair.privkey, json.address)
       await wg.addPeer({ pubkey: json.pubkey, allowedIPs: "10.13.37.1/24", endpoint: `${invite[0]}:${invite[1]}` })
     } catch (error) {
-      console.error('failed to contact the server');
+      console.error(error);
       process.exit(1);
     }
   }
