@@ -32,7 +32,12 @@ class Wg {
     await execAsync("ip", ["link", "set", "mtu", "1420", "dev", wg.iface])
     await execAsync("ip", ["addr", "add", addr, "dev", wg.iface])
     await execAsync("ip", ["link", "set", wg.iface, "up"])
-    await execAsync("ip", ["route", "add", "10.13.37.0/24", "dev", wg.iface])
+    try {
+      await execAsync("ip", ["route", "add", "10.13.37.0/24", "dev", wg.iface])
+    } catch (error) {
+      console.log("didn't set ip route, exists already probably.")
+    }
+
     await wg.addConfig(`
     [Interface]
     PrivateKey = ${privateKey}
