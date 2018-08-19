@@ -66,6 +66,7 @@ function serve(host, port, keypair) {
   })
 
   app.get('/status', async function (req, res) {
+    console.log(`/status requested from ${req.ip}`);
     if (!isAuthed(req.ip)) {
       console.log(`forbidden GET /status from ${req.ip}`)
       res.status(403).send()
@@ -80,7 +81,7 @@ function serve(host, port, keypair) {
     var httpd = http.createServer(app)
     httpd.once('error', rej)
     httpd.once('listening', res)
-    httpd.listen(port)
+    httpd.listen(port, "0.0.0.0")
   })
 }
 
