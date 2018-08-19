@@ -76,7 +76,12 @@ class Wg {
    */
   async addPeer(peer) {
     let wg = this;
-    let args = ["set", wg.iface, "peer", peer.pubkey, "allowed-ips", peer.allowedIPs];
+    let args = [
+      "set", wg.iface,
+      "peer", peer.pubkey,
+      "allowed-ips", peer.allowedIPs,
+      "persistent-keepalive", "25",
+    ];
     if (peer.endpoint) {
       args.push("endpoint")
       args.push(peer.endpoint)
