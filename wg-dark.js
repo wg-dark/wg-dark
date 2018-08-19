@@ -6,26 +6,20 @@ const Wg = require('./wg')
 const argv = require('minimist')(process.argv.slice(2))
 const cmd  = argv._.length < 1 ? 'help' : argv._[0];
 
-function refreshLoop() {
-    console.info("fetching server update")
-    fetch("http://10.13.37.1:1337/status")
-      .then(res => {
-        console.log(`status: ${res.status}`)
-        return res.json()
-      })
-      .then(json => {
-        const peerCount = json.peers.split("\n")
-          .filter(line => line === "[Peer]")
-          .length;
-        console.info(`updating ${peerCount} peers.`)
-        return wg.addConfig(json.peers)
-      })
-      .then(() => {
-        console.info("updated. sleeping 30 seconds.")
-      })
-      .catch(err => console.error(err));
-    setTimeout(refreshLoop, 30000)
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
+
+// Rough implementation. Untested.
+function timeout(ms, promise) {
+  return new Promise(function(resolve, reject) {
+    setTimeout(function() {
+      reject(new Error("timeout"))
+    }, ms)
+    promise.then(resolve, reject)
+  })
+}
+
 
 (async function() {
   if (!(await commandExists('wg'))) {
@@ -70,6 +64,21 @@ function refreshLoop() {
       process.exit(1);
     }
 
-    refreshLoop()
+    while (true) {
+      try {
+        console.info("fetching server update")
+        let reply = await timeout(1000, fetch("http://10.13.37.1:1337/status"));
+        console.log(`status: ${reply.status}`)
+        let json = await reply.json();
+        await wg.addConfig(json.peers)
+        const peerCount = json.peers.split("\n")
+          .filter(line => line === "[Peer]")
+          .length;
+        console.info(`updated ${peerCount} peers. sleeping 30 seconds.`)
+        await sleep(30000);
+      } catch (error) {
+        console.error(error);
+      }
+    }
   }
 })();
