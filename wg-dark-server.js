@@ -12,6 +12,12 @@ const host = argv._.length < 2 ? undefined : argv._[1]
 const port = isNaN(argv.port) ? 1337 : argv.port
 const wg = new Wg(host)
 
+process.on('SIGINT', async () => {
+    console.log("caught interrupt signal, killing interface");
+    await wg.down()
+    process.exit(0)
+});
+
 const isAuthed = (addr) => {
   return ip.cidrSubnet('10.13.37.0/24').contains(addr)
     || ip.isEqual(addr, '127.0.0.1')
