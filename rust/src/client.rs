@@ -6,6 +6,7 @@ extern crate pretty_env_logger;
 extern crate futures;
 extern crate hyper;
 extern crate hyper_tls;
+extern crate serde;
 extern crate serde_json;
 extern crate tokio;
 extern crate tokio_signal;
@@ -42,9 +43,34 @@ struct JoinResponse {
     pubkey: String
 }
 
-// fn request<J>(request: Request) -> impl Future<Item = J, Error = Error> {
-// 
-// }
+#[derive(Debug, Deserialize)]
+struct StatusResponse {
+    peers: String,
+}
+
+fn request<J>(request: Request<hyper::Body>) -> impl Future<Item = J, Error = Error>
+    where J: serde::de::DeserializeOwned
+{
+    let https = HttpsConnector::new(4).expect("TLS initialization failed");
+    let client = Client::builder().build::<_, hyper::Body>(https);
+
+    client.request(request)
+        .map_err(|e| e.into())
+        // filer out bad status codes
+        .and_then(|res| {
+            if !res.status().is_success() {
+                bail!("server returned {}.", res.status());
+            }
+            Ok(res)
+        })
+        // collect the body into chunks and deserialize JSON
+        .and_then(move |res| -> Box<Future<Item = J, Error = Error> + Send> { 
+            debug!("collecting body");
+            Box::new(res.into_body().concat2().map(|body| {
+                serde_json::from_slice::<J>(&body).unwrap()
+            }).map_err(|e| e.into()))
+        })
+}
 
 fn main() {
     pretty_env_logger::init();
@@ -67,27 +93,10 @@ fn main() {
             .body(serde_json::to_string(&join_request).unwrap().into())
             .unwrap();
 
-        let https = HttpsConnector::new(4).expect("TLS initialization failed");
-        let client = Client::builder().build::<_, hyper::Body>(https);
         let wg = Wg::new(host);
-        let fut = client.request(req)
-            .map_err(|e| e.into())
-            // filer out bad status codes
-            .and_then(|res| {
-                if !res.status().is_success() {
-                    bail!("server returned {}.", res.status());
-                }
-                Ok(res)
-            })
-            // collect the body into chunks and deserialize JSON
-            .and_then(|res| -> Box<Future<Item = JoinResponse, Error = Error> + Send> { 
-
-                debug!("collecting body");
-                Box::new(res.into_body().concat2().map(|body| {
-                    serde_json::from_slice::<JoinResponse>(&body).unwrap()
-                }).map_err(|e| e.into()))
-            })
-            // deal with the server response
+        let host = host.to_string();
+        let port = port.to_string();
+        let fut = request(req)
             .and_then(move |json: JoinResponse| {
                 debug!("json: {:?}", json);
                 info!("bringing up wg interface ({})", wg.iface);
@@ -112,16 +121,41 @@ fn main() {
                 wg.add_config(&format!("
                     [Peer]
                     PublicKey = {}
+                    Endpoint = {}:{}
                     AllowedIPs = 10.13.37.1/24
                     PersistentKeepalive = 25
-                ", json.pubkey))
+                ", json.pubkey, &host, &port))
                     .map_err(|_| err_msg("failed to set server as peer on interface"))?;
                 info!("wg interface up with server added as peer.");
 
                 tokio::spawn(Interval::new(Instant::now(), Duration::from_secs(20))
-                    .map_err(|_|())
-                    .for_each(|_| {
-                        debug!("timer fire!");
+                    .map_err(|e| error!("{:?}", e))
+                    .and_then(|_| {
+                        debug!("building update request");
+                        let req = Request::get("http://10.13.37.1:1337/status")
+                            .header("User-Agent", "wg-dark")
+                            .header("Content-Type", "application/json")
+                            .body(hyper::Body::empty())
+                            .unwrap();
+                        request(req)
+                            .then(|result| {
+                                match result {
+                                    Ok(good) => Ok(Some(good)),
+                                    Err(_) => {
+                                        warn!("status request failed");
+                                        Ok(None)
+                                    }
+                                }
+                            })
+                    })
+                    .for_each(move |status: Option<StatusResponse>| {
+                        if let Some(status) = status {
+                            debug!("trying to add peers.");
+                            wg.add_config(&status.peers).expect("failed to add new peer config");
+                            info!("updated peers");
+                        } else {
+                            info!("did nothing.");
+                        }
                         Ok(())
                     }));
                 Ok(())
