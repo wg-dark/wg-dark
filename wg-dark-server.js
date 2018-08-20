@@ -66,7 +66,7 @@ function serve(host, port, keypair) {
       await wg.addPeer({ pubkey: req.body.pubkey, allowedIPs: cidr})
       console.log(`peer added`)
 
-      res.send({address: cidr, pubkey: keypair.pubkey})
+      res.send({address: cidr, server: "10.13.37.1/32", pubkey: keypair.pubkey})
       console.log(`sent`)
     }
   })
