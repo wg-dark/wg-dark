@@ -2,6 +2,7 @@
 #[macro_use] extern crate log;
 #[macro_use] extern crate serde_derive;
 #[macro_use] extern crate structopt;
+extern crate capabilities;
 extern crate pretty_env_logger;
 extern crate futures;
 extern crate hyper;
@@ -10,9 +11,11 @@ extern crate serde;
 extern crate serde_json;
 extern crate tokio;
 extern crate tokio_signal;
+extern crate xdg;
 
 mod wg;
 
+use capabilities::{Capabilities, Capability, Flag};
 use failure::{Error, err_msg};
 use futures::{Stream, future::{Future, FutureResult}};
 use hyper::{Client, Request};
@@ -25,6 +28,7 @@ use tokio::timer::Interval;
 #[derive(StructOpt, Debug)]
 #[structopt(name = "wg-dark")]
 enum Cmd {
+    /// Join a darknet.
     #[structopt(name = "join")]
     Join {
         invite_code: String
@@ -73,7 +77,26 @@ fn request<J>(request: Request<hyper::Body>) -> impl Future<Item = J, Error = Er
 }
 
 fn main() {
+    if std::env::var("RUST_LOG").is_err() {
+        std::env::set_var("RUST_LOG", "wg_dark=debug")
+    }
     pretty_env_logger::init();
+
+    debug!("checking capabilities...");
+    match Capabilities::from_current_proc() {
+        Ok(caps) => {
+            if caps.check(Capability::CAP_NET_ADMIN, Flag::Effective) {
+                info!("CAP_NET_ADMIN effective.");
+            } else {
+                error!("CAP_NET_ADMIN capability not effective for this process.");
+                process::exit(1);
+            }
+        }
+        Err(_) => {
+            error!("failed to get capabilities for this process.");
+            process::exit(1);
+        }
+    }
 
     let cmd = Cmd::from_args();
     let keypair = Wg::generate_keypair().unwrap();

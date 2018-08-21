@@ -1,5 +1,4 @@
 use failure::Error;
-use std::ffi::OsStr;
 use std::io::Write;
 use std::process::{Command, Stdio};
 
@@ -14,10 +13,8 @@ pub struct Keypair {
   pub pubkey: String
 }
 
-fn run<I, S>(cmd: &str, args: I, input: Option<&str>) -> Result<String, Error>
-  where I: IntoIterator<Item = S>,
-        S: AsRef<OsStr>
-{
+fn run(cmd: &str, args: &[&str], input: Option<&str>) -> Result<String, Error> {
+  debug!("$ {} {}", cmd, args.join(" "));
   let mut child = Command::new(cmd)
     .args(args)
     .stdin(Stdio::piped())
@@ -30,6 +27,10 @@ fn run<I, S>(cmd: &str, args: I, input: Option<&str>) -> Result<String, Error>
   }
 
   let output = child.wait_with_output()?;
+
+  if !output.status.success() {
+    bail!("command failed")
+  }
 
   Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
