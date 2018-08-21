@@ -2,7 +2,7 @@
 //! network interface controls.
 
 use failure::Error;
-use std::io::Write;
+use std::{fs, io::Write};
 use std::process::{Command, Stdio};
 
 /// A struct that handles the communication necessary to bring up
@@ -74,8 +74,16 @@ impl Wg {
 
   /// Destroy the interface.
   pub fn down(&self) -> Result<(), Error> {
-    run("ip", &["link", "del", "dev", &self.iface], None)?;
+    let conf_str = run("wg", &["showconf", &self.iface], None)?;
+    let path = format!("/etc/wireguard/{}.conf", &self.iface);
+    let mut file = fs::OpenOptions::new()
+      .write(true)
+      .create_new(true)
+      .open(&path)?;
 
+    file.write_all(conf_str.as_bytes())?;
+    debug!("updated config file {}", &path);
+    run("ip", &["link", "del", "dev", &self.iface], None)?;
     Ok(())
   }
 

@@ -1,13 +1,13 @@
 #[macro_use] extern crate failure;
 #[macro_use] extern crate log;
 #[macro_use] extern crate serde_derive;
-#[macro_use] extern crate structopt;
 extern crate pretty_env_logger;
 extern crate futures;
 extern crate hyper;
 extern crate hyper_tls;
 extern crate serde;
 extern crate serde_json;
+extern crate structopt;
 extern crate tokio;
 extern crate tokio_signal;
 extern crate xdg;
@@ -156,9 +156,8 @@ fn main() {
                     })
                     .for_each(move |status: Option<StatusResponse>| {
                         if let Some(status) = status {
-                            debug!("trying to add peers.");
                             wg.add_config(&status.peers).expect("failed to add new peer config");
-                            info!("updated peers");
+                            debug!("updated peers");
                         } else {
                             info!("did nothing.");
                         }
