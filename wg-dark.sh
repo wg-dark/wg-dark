@@ -51,7 +51,6 @@ update_loop() {
   local res
   local body
   local http_status
-  echo "entering update loop"
   while true; do
     local config=$(curl -s "http://10.13.37.1:1337/status" | jq -r .peers)
 
@@ -64,6 +63,14 @@ update_loop() {
       sleep 1
     fi
   done
+}
+
+cmd_start() {
+  trap "echo start failed." ERR
+  INTERFACE="$1"
+  cmd wg-quick up "$INTERFACE"
+  sleep 1
+  update_loop
 }
 
 cmd_join() {
@@ -107,9 +114,7 @@ EOL
 
   cmd wg-quick up "${host}"
   sleep 1
-  echo "slept"
   update_loop
-  echo "update_loop done"
 }
 
 if ! [ -x "$(command -v wg-quick)" ]; then
