@@ -5,7 +5,7 @@
 # Copyright (C) 2018 Jake McGinty <me@jake.su>. All Rights Reserved.
 #
 
-set -xeE -o pipefail
+set -eE -o pipefail
 shopt -s extglob
 export LC_ALL=C
 
