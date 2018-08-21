@@ -30,6 +30,12 @@ enum Cmd {
     #[structopt(name = "join")]
     Join {
         invite_code: String
+    },
+
+    /// Start up a darknet you've already joined.
+    #[structopt(name = "start")]
+    Start {
+        name: String
     }
 }
 
@@ -58,7 +64,7 @@ fn request<J>(request: Request<hyper::Body>) -> impl Future<Item = J, Error = Er
 
     client.request(request)
         .map_err(|e| e.into())
-        // filer out bad status codes
+        // fail the future on non-success status codes
         .and_then(|res| {
             if !res.status().is_success() {
                 bail!("server returned {}.", res.status());
@@ -74,19 +80,57 @@ fn request<J>(request: Request<hyper::Body>) -> impl Future<Item = J, Error = Er
         })
 }
 
-fn main() {
-    if std::env::var("RUST_LOG").is_err() {
-        std::env::set_var("RUST_LOG", "wg_dark=debug")
-    }
+/// Listen for interrupts and cleans up before exiting.
+fn spawn_interrupt_watcher(wg: Wg) {
+    tokio::spawn({
+        let wg = wg.clone();
+        tokio_signal::ctrl_c()
+            .flatten_stream()
+            .map_err(|_|())
+            .for_each(move |()| -> FutureResult<(), ()> {
+                info!("cleaning up interface.");
+                wg.down().unwrap();
+                process::exit(0);
+            })
+    });
+}
+fn spawn_update_loop(wg: Wg) {
+    tokio::spawn(Interval::new(Instant::now(), Duration::from_secs(20))
+        .map_err(|e| error!("{:?}", e))
+        .and_then(|_| {
+            debug!("building update request");
+            let req = Request::get("http://10.13.37.1:1337/status")
+                .header("User-Agent", "wg-dark")
+                .header("Content-Type", "application/json")
+                .body(hyper::Body::empty())
+                .unwrap();
+            request(req)
+                .then(|result| {
+                    match result {
+                        Ok(good) => Ok(Some(good)),
+                        Err(e) => {
+                            warn!("status request failed: {:?}", e);
+                            Ok(None)
+                        }
+                    }
+                })
+        })
+        .for_each(move |status: Option<StatusResponse>| {
+            if let Some(status) = status {
+                wg.add_config(&status.peers).expect("failed to add new peer config");
+                debug!("updated peers");
+            } else {
+                info!("did nothing.");
+            }
+            Ok(())
+        })
+    );
+}
 
-    pretty_env_logger::init();
-
-    let cmd = Cmd::from_args();
-    let keypair = Wg::generate_keypair().unwrap();
-    let Cmd::Join { invite_code } = cmd;
-
+fn join(invite_code: String) -> Result<(), Error> {
     if let [host, port, code] = &invite_code.split(':').collect::<Vec<&str>>()[..] {
         debug!("endpoint: {}:{}, code: {}", host, port, code);
+        let keypair = Wg::generate_keypair().unwrap();
 
         let join_request = JoinRequest {
             pubkey: keypair.pubkey.to_string(),
@@ -110,19 +154,7 @@ fn main() {
                 wg.up(&keypair.privkey, &json.address)
                     .map_err(|_| err_msg("wg failed to be brought up"))?;
 
-                // Now the interface is up, add a handler to clean it up
-                // on exit.
-                tokio::spawn({
-                    let wg = wg.clone();
-                    tokio_signal::ctrl_c()
-                        .flatten_stream()
-                        .map_err(|_|())
-                        .for_each(move |()| -> FutureResult<(), ()> {
-                            info!("cleaning up interface.");
-                            wg.down().unwrap();
-                            process::exit(0);
-                        })
-                });
+                spawn_interrupt_watcher(wg.clone());
 
                 wg.add_config(&format!("
                     [Peer]
@@ -134,41 +166,33 @@ fn main() {
                     .map_err(|_| err_msg("failed to set server as peer on interface"))?;
                 info!("wg interface up with server added as peer.");
 
-                tokio::spawn(Interval::new(Instant::now(), Duration::from_secs(20))
-                    .map_err(|e| error!("{:?}", e))
-                    .and_then(|_| {
-                        debug!("building update request");
-                        let req = Request::get("http://10.13.37.1:1337/status")
-                            .header("User-Agent", "wg-dark")
-                            .header("Content-Type", "application/json")
-                            .body(hyper::Body::empty())
-                            .unwrap();
-                        request(req)
-                            .then(|result| {
-                                match result {
-                                    Ok(good) => Ok(Some(good)),
-                                    Err(e) => {
-                                        warn!("status request failed: {:?}", e);
-                                        Ok(None)
-                                    }
-                                }
-                            })
-                    })
-                    .for_each(move |status: Option<StatusResponse>| {
-                        if let Some(status) = status {
-                            wg.add_config(&status.peers).expect("failed to add new peer config");
-                            debug!("updated peers");
-                        } else {
-                            info!("did nothing.");
-                        }
-                        Ok(())
-                    }));
+                spawn_update_loop(wg);
                 Ok(())
             })
             .map_err(|e| { error!("{}", e); process::exit(1) });
         tokio::run(fut);
+        Ok(())
     } else {
-        error!("malformed invite code");
+        bail!("malformed invite code");
+    }
+}
+
+fn main() {
+    if std::env::var("RUST_LOG").is_err() {
+        std::env::set_var("RUST_LOG", "wg_dark=debug")
     }
 
+    pretty_env_logger::init();
+
+    let cmd = Cmd::from_args();
+    let result = if let Cmd::Join { invite_code } = cmd {
+        join(invite_code)
+    } else {
+        Ok(())
+    };
+
+    if let Err(e) = result {
+        error!("{}", e);
+        process::exit(1);
+    }
 }
