@@ -60,13 +60,17 @@ impl Wg {
 
   /// Create the interface and initialize it with the initial assignment data
   /// provided by the server.
-  pub fn up(&self, privkey: &str, address: &str) -> Result<(), Error> {
+  pub fn up(&self) -> Result<(), Error> {
     run("ip", &["link", "add", &self.iface, "type", "wireguard"], None)?;
     run("ip", &["link", "set", "mtu", "1420", "dev", &self.iface], None)?;
-    run("ip", &["addr", "add", &address, "dev", &self.iface], None)?;
     run("ip", &["link", "set", &self.iface, "up"], None)?;
     let _ = run("ip", &["route", "add", "10.13.37.0/24", "dev", &self.iface], None);
 
+    Ok(())
+  }
+
+  pub fn set_key_and_addr(&self, privkey: &str, address: &str) -> Result<(), Error> {
+    run("ip", &["addr", "add", &address, "dev", &self.iface], None)?;
     self.add_config(&format!("[Interface]\nPrivateKey = {}\nListenPort = 1337", privkey))?;
 
     Ok(())
@@ -95,5 +99,20 @@ impl Wg {
     run("wg", &["addconf", &self.iface, "/dev/stdin"], Some(config))?;
 
     Ok(())
+  }
+
+  /// Loads a configuration file into this wireguard interface.
+  ///
+  /// Note: This appends configuration data to the interface and does not
+  /// clobber old config.
+  pub fn set_config_path(&self, path: &str) -> Result<(), Error> {
+    run("wg", &["setconf", &self.iface, path], None)?;
+
+    Ok(())
+  }
+
+  /// Just bring the interface up with wg-quick via an existing config.
+  pub fn quick_up(&self) -> Result<(), Error> {
+
   }
 }

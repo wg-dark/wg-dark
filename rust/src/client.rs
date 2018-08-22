@@ -15,11 +15,11 @@ extern crate xdg;
 mod wg;
 
 use failure::{Error, err_msg};
-use futures::{Stream, future::{Future, FutureResult}};
+use futures::{Stream, future::{lazy, Future, FutureResult}};
 use hyper::{Client, Request};
 use hyper_tls::HttpsConnector;
 use structopt::StructOpt;
-use std::{time::{Duration, Instant}, process};
+use std::{path::Path, time::{Duration, Instant}, process};
 use wg::Wg;
 use tokio::timer::Interval;
 
@@ -94,6 +94,8 @@ fn spawn_interrupt_watcher(wg: Wg) {
             })
     });
 }
+
+/// Poll the coordination server for updates to the darknet.
 fn spawn_update_loop(wg: Wg) {
     tokio::spawn(Interval::new(Instant::now(), Duration::from_secs(20))
         .map_err(|e| error!("{:?}", e))
@@ -123,8 +125,25 @@ fn spawn_update_loop(wg: Wg) {
                 info!("did nothing.");
             }
             Ok(())
-        })
-    );
+        }));
+}
+
+fn start(name: String) -> Result<(), Error> {
+    let path = format!("/etc/wireguard/{}.conf", name);
+    if !Path::new(&path).exists() {
+        error!("{} missing.", path);
+        bail!("join the darknet with an invite before running \"start\"");
+    }
+
+    wg.set_config_path(&path)?;
+    tokio::run(lazy(|| {
+        let wg = Wg::new(&name);
+        wg.up()?;
+
+        spawn_interrupt_watcher(wg);
+        spawn_update_loop(wg);
+    }));
+    Ok(())
 }
 
 fn join(invite_code: String) -> Result<(), Error> {
@@ -151,8 +170,8 @@ fn join(invite_code: String) -> Result<(), Error> {
                 debug!("json: {:?}", json);
                 info!("bringing up wg interface ({})", wg.iface);
 
-                wg.up(&keypair.privkey, &json.address)
-                    .map_err(|_| err_msg("wg failed to be brought up"))?;
+                wg.up().map_err(|_| err_msg("wg failed to be brought up"))?;
+                wg.set_key_and_addr(&keypair.privkey, &json.address).map_err(|_| err_msg("failed to set privkey and address"))?;
 
                 spawn_interrupt_watcher(wg.clone());
 
@@ -164,7 +183,7 @@ fn join(invite_code: String) -> Result<(), Error> {
                     PersistentKeepalive = 25
                 ", json.pubkey, &host, &port))
                     .map_err(|_| err_msg("failed to set server as peer on interface"))?;
-                info!("wg interface up with server added as peer.");
+                info!("wg-dark interface up and configured.");
 
                 spawn_update_loop(wg);
                 Ok(())
@@ -184,11 +203,9 @@ fn main() {
 
     pretty_env_logger::init();
 
-    let cmd = Cmd::from_args();
-    let result = if let Cmd::Join { invite_code } = cmd {
-        join(invite_code)
-    } else {
-        Ok(())
+    let result = match Cmd::from_args() {
+        Cmd::Join { invite_code } => join(invite_code),
+        Cmd::Start { name } => start(name)
     };
 
     if let Err(e) = result {
