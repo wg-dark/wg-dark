@@ -1,7 +1,7 @@
-const execFile = require('child_process').execFile;
-const execSync = require('child_process').execSync;
+const { execFile, spawnSync } = require('child_process');
 const tmp = require('tmp');
 const fs = require('fs');
+const fsPromises = fs.promises;
 
 async function execAsync(cmd, args) {
   return new Promise((resolve, reject) => {
@@ -9,7 +9,7 @@ async function execAsync(cmd, args) {
       if (error) {
         reject(error)
       } else {
-        resolve(stdout)
+        resolve(stdout.toString('utf8').trim())
       }
     })
   })
@@ -20,49 +20,49 @@ class Wg {
     this.iface = iface;
   }
 
-  static generateKeypair() {
-    let privkey = execSync("wg genkey").toString('utf8').trim();
-    let pubkey = execSync("wg pubkey", { input: privkey }).toString('utf8').trim();
-    return {privkey, pubkey};
-  }
-
-  async up(privateKey, addr) {
-    let wg = this
-    await execAsync("ip", ["link", "add", wg.iface, "type", "wireguard"])
-    await execAsync("ip", ["link", "set", "mtu", "1420", "dev", wg.iface])
-    await execAsync("ip", ["addr", "add", addr, "dev", wg.iface])
-    await execAsync("ip", ["link", "set", wg.iface, "up"])
+  async createOrStart() {
     try {
-      await execAsync("ip", ["route", "add", "10.13.37.0/24", "dev", wg.iface])
-    } catch (error) {
-      console.log("didn't set ip route, exists already probably.")
+      console.log("bringing up existing wireguard config.")
+      await execAsync("wg-quick", ["up", this.iface])
+    } catch (e) {
+      console.log("creating new wireguard config.")
+      const privkey = await execAsync("wg", ["genkey"])
+
+      await fsPromises.writeFile(`/etc/wireguard/${this.iface}.conf`,
+        `[Interface]
+        PrivateKey = ${privkey}
+        Address = 10.13.37.1/24
+        ListenPort = 1337`)
+
+      await execAsync("wg-quick", ["up", this.iface])
     }
 
-    await wg.addConfig(`
-    [Interface]
-    PrivateKey = ${privateKey}
-    ListenPort = 1337
-    `)
+    // Make sure the "default" route is added for our subnet.
+    try {
+      await execAsync("ip", ["route", "add", "10.13.37.0/24", "dev", this.iface])
+    } catch (e) {
+      console.log("didn't set ip route, exists already probably.")
+    }
   }
 
   async down() {
-    let wg = this
-    await execAsync("ip", ["link", "del", "dev", wg.iface])
+    await execAsync("wg-quick", ["down", this.iface])
+  }
+
+  async pubkey() {
+    return await execAsync("wg", ["show", this.iface, "public-key"])
   }
 
   async getPeersConfig() {
-    let wg = this
-
-    let stdout = await execAsync("wg", ["showconf", wg.iface])
-
-    return stdout.toString('utf8')
+    return (await execAsync("wg", ["showconf", wg.iface]))
       .split("\n")
-      .filter((line) => {
-        return !line.trim().startsWith("[Interface]")
-          && !line.trim().startsWith("ListenPort")
-          && !line.trim().startsWith("FwMark")
-          && !line.trim().startsWith("PrivateKey")
-          && line !== ""
+      .filter((raw_line) => {
+        const line = raw_line.trim()
+        return !line.startsWith("[Interface]")
+          && !line.startsWith("ListenPort")
+          && !line.startsWith("FwMark")
+          && !line.startsWith("PrivateKey")
+          && line.length > 0
       })
       .join("\n")
   }
@@ -75,18 +75,13 @@ class Wg {
    * @param {string} peer.allowedIPs - The peer's allowed IPs
    */
   async addPeer(peer) {
-    let wg = this;
-    let args = [
-      "set", wg.iface,
-      "peer", peer.pubkey,
-      "allowed-ips", peer.allowedIPs,
-      "persistent-keepalive", "25",
-    ];
-    if (peer.endpoint) {
-      args.push("endpoint")
-      args.push(peer.endpoint)
-    }
-    await execAsync("wg", args);
+    this.addConfig(`
+      [Peer]
+      PublicKey = ${peer.pubkey}
+      AllowedIPs = ${peer.allowedIPs}
+      PersistentKeepalive = 25
+      ${peer.endpoint ? `Endpoint = ${peer.endpoint}` : ''}
+    `)
   }
 
   async getPeers() {
@@ -103,27 +98,8 @@ class Wg {
     });
   }
 
-  async addConfig(configString) {
-    let wg = this;
-    return new Promise((resolve, reject) => {
-      tmp.file((err, path, fd, cleanup) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-
-        fs.write(fd, configString, async (err) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-
-          await execAsync("wg", ["addconf", wg.iface, path])
-          cleanup()
-          resolve()
-        });
-      });
-    });
+  async addConfig(input) {
+    let proc = spawnSync("wg", ["addconf", this.iface, "/dev/stdin"], { input })
   }
 }
 

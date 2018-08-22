@@ -4,6 +4,7 @@ const crypto  = require('crypto')
 const express = require('express')
 const fetch   = require('node-fetch')
 const ip      = require('ip')
+const level   = require('level')
 const Wg      = require('./wg')
 
 const argv = require('minimist')(process.argv.slice(2))
@@ -11,6 +12,8 @@ const cmd  = argv._.length < 1 ? 'help' : argv._[0]
 const host = argv._.length < 2 ? undefined : argv._[1]
 const port = isNaN(argv.port) ? 1337 : argv.port
 const wg = new Wg(host)
+
+const invites = level('./invites_db')
 
 process.on('SIGINT', async () => {
     console.log("caught interrupt signal, killing interface");
@@ -36,50 +39,48 @@ function nextCidr(pubkey) {
   })
 }
 
-function serve(host, port, keypair) {
-  var invites = []
+function serve(host, port, pubkey) {
   const app = express()
   app.use(parser.json())
 
-  app.get('/invite', function (req, res) {
-    if (!isAuthed(req.ip)) {
-      console.log(`forbidden GET /invite from ${req.ip}`)
-      res.status(403).send()
-    } else {
+  app.get('/invite', async (req, res) => {
+    if (isAuthed(req.ip)) {
       var invite = crypto.randomBytes(16).toString('hex')
-      invites.push(invite)
+      await invites.put(invite, '')
+      console.log(`generated invite code ${invite}`)
       res.send(`${host}:${port}:${invite}`)
+    } else {
+      res.status(403).send()
     }
   })
 
   app.post('/join', async function (req, res) {
     if (!req.body.invite || !req.body.pubkey) {
       res.status(400).send()
-    } else if (invites.indexOf(req.body.invite) < 0) {
-      res.status(403).send()
-    } else {
-      invites.splice(invites.indexOf(req.body.invite), 1)
-      console.log(`invite ${req.body.invite} redeemed by ${req.body.pubkey}`)
+    }
+
+    try {
+      await invites.get(req.body.invite)
 
       const cidr = await nextCidr(req.body.pubkey)
-      console.log(`cidr ${cidr}`)
       await wg.addPeer({ pubkey: req.body.pubkey, allowedIPs: cidr})
-      console.log(`peer added`)
 
-      res.send({address: cidr, server: "10.13.37.1/32", pubkey: keypair.pubkey})
-      console.log(`sent`)
+      await invites.del(req.body.invite)
+      console.log(`invite ${req.body.invite} redeemed by ${req.body.pubkey}`)
+
+      res.send({address: cidr, server: "10.13.37.1/32", pubkey})
+
+    } catch (err) {
+      if (err.notFound) res.status(403).send()
+      else              res.status(500).send()
     }
   })
 
   app.get('/status', async function (req, res) {
-    console.log(`/status requested from ${req.ip}`);
-    if (!isAuthed(req.ip)) {
-      console.log(`forbidden GET /status from ${req.ip}`)
-      res.status(403).send()
+    if (isAuthed(req.ip)) {
+      res.send({ peers : await wg.getPeersConfig() })
     } else {
-      res.send({
-        peers : await wg.getPeersConfig()
-      })
+      res.status(403).send()
     }
   })
 
@@ -93,17 +94,12 @@ function serve(host, port, keypair) {
 
 (async function() {
   if (cmd === 'serve' && host) {
-    const keypair = Wg.generateKeypair()
-    await wg.up(keypair.privkey, "10.13.37.1/24")
-    serve(host, port, keypair)
-      .then(() => console.log('http up'))
-      .catch((err) => console.error(err))
-  } else if (cmd === 'invite') {
-    const res = await fetch(`http://localhost:${port}/invite`, { method : 'GET' })
-    const body = await res.text()
-    console.log(body)
+    await wg.createOrStart()
+    const pubkey = await wg.pubkey()
+    await serve(host, port, pubkey)
+    console.log('http up')
   } else {
-    console.error('usage goes here')
+    console.error('usage might one day go here')
     process.exit(1)
   }
 })()
