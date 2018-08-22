@@ -75,7 +75,7 @@ class Wg {
    * @param {string} peer.allowedIPs - The peer's allowed IPs
    */
   async addPeer(peer) {
-    this.addConfig(`
+    await this.addConfig(`
       [Peer]
       PublicKey = ${peer.pubkey}
       AllowedIPs = ${peer.allowedIPs}
@@ -100,6 +100,9 @@ class Wg {
 
   async addConfig(input) {
     let proc = spawnSync("wg", ["addconf", this.iface, "/dev/stdin"], { input })
+    console.log(`addConfig stdout: ${proc.stdout.toString('utf8')}`)
+    console.log(`addConfig stderr: ${proc.stderr.toString('utf8')}`)
+    console.log(`addConfig status: ${proc.status}`)
   }
 }
 
