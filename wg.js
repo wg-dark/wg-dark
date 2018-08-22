@@ -1,5 +1,5 @@
 const { execFile, spawnSync } = require('child_process');
-const tmp = require('tmp');
+const { withFile } = require('tmp-promise');
 const fs = require('fs');
 const fsPromises = fs.promises;
 
@@ -100,10 +100,9 @@ class Wg {
   }
 
   async addConfig(input) {
-    let proc = spawnSync("wg", ["addconf", this.iface, "/dev/stdin"], { input })
-    console.log(`addConfig stdout: ${proc.stdout.toString('utf8')}`)
-    console.log(`addConfig stderr: ${proc.stderr.toString('utf8')}`)
-    console.log(`addConfig status: ${proc.status}`)
+    withFile(async ({path, fd}) => {
+      await spawnAsync("wg", ["addconf", this.iface, path])
+    });
   }
 }
 
