@@ -32,6 +32,7 @@ class Wg {
         `[Interface]
         PrivateKey = ${privkey}
         Address = 10.13.37.1/24
+        SaveConfig = true
         ListenPort = 1337`)
 
       await execAsync("wg-quick", ["up", this.iface])
