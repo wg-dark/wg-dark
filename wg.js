@@ -101,7 +101,7 @@ class Wg {
 
   async addConfig(input) {
     withFile(async ({path, fd}) => {
-      await spawnAsync("wg", ["addconf", this.iface, path])
+      await execAsync("wg", ["addconf", this.iface, path])
     });
   }
 }
