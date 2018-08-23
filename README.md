@@ -1,24 +1,28 @@
 # wg-dark
-wireguard darknet.
+a darknet that uses wireguard for the heavy lifting and wants to be
+simple.
+
+to that end, the entire project is just over 300 lines of code
+(client is ~140 LoC of bash, server is ~170 LoC of node).
+
+read it over coffee.
 
 ## usage
+
+client: 
+
 ```
-$ wg-dark serve cool.dark.net [--port 1337]
-$ wg-dark invite [--port 1337]
-$ wg-dark join cool.dark.net:1337:secret [--keyfile /tmp/key00]
-$ wg-dark [status]
+$ wg-dark.sh join cool.dark.net:1337:secret
+$ wg-dark.sh start
+$ wg-dark.sh invite
 ```
 
-## API
-### POST /join
-```
-{ invite : "secret", publicKey : "lolwut" }
-```
+server:
 
-### GET - /config
 ```
-{ address : "10.20.30.3/32", peers : [{ publicKey : "blahhhh", allowedIps : ["10.20.30.1/32"], endpoint : "1.1.1.1:1337" }] }
+$ node wg-dark-server cool.dark.net
 ```
 
 ## license
 License Zero Reciprocal Public License 2.0.1
+
