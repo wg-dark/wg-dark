@@ -99,8 +99,9 @@ class Wg {
     });
   }
 
-  async addConfig(input) {
+  async addConfig(config) {
     withFile(async ({path, fd}) => {
+      await fsPromises.writeFile(path, config)
       await execAsync("wg", ["addconf", this.iface, path])
     });
   }
