@@ -17,7 +17,7 @@ INTERFACE=""
 
 cmd() {
   echo -e "\e[96m$\e[0m $*" >&2
-  "$@" > /dev/null
+  "$@ > /dev/null"
 }
 
 die() {
@@ -111,7 +111,6 @@ cmd_invite() {
 
 cmd_join() {
   trap "echo join failed." ERR
-  INTERFACE="$host"
 
   local pieces=(${1//:/ })
   local host=${pieces[0]}
@@ -119,6 +118,7 @@ cmd_join() {
   local code=${pieces[2]}
   local body
 
+  INTERFACE="$host"
   debug "endpoint $host:$port, code $code"
 
   local privkey=$(wg genkey)
