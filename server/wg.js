@@ -1,16 +1,12 @@
 const { execFile, spawnSync } = require('child_process');
 const { withFile } = require('tmp-promise');
-const fs = require('fs');
-const fsPromises = fs.promises;
+const fs = require('fs').promises;
 
 async function execAsync(cmd, args) {
   return new Promise((resolve, reject) => {
     execFile(cmd, args, (error, stdout, stderr) => {
-      if (error) {
-        reject(error)
-      } else {
-        resolve(stdout.toString('utf8').trim())
-      }
+      if (error) reject(error)
+      else       resolve(stdout.toString('utf8').trim())
     })
   })
 }
@@ -28,7 +24,7 @@ class Wg {
       console.log("creating new wireguard config.")
       const privkey = await execAsync("wg", ["genkey"])
 
-      await fsPromises.writeFile(`/etc/wireguard/${this.iface}.conf`,
+      await fs.writeFile(`/etc/wireguard/${this.iface}.conf`,
         `[Interface]
         PrivateKey = ${privkey}
         Address = 10.13.37.1/24
@@ -98,7 +94,7 @@ class Wg {
 
   async addConfig(config) {
     withFile(async ({path, fd}) => {
-      await fsPromises.writeFile(path, config)
+      await fs.writeFile(path, config)
       await execAsync("wg", ["addconf", this.iface, path])
     });
   }
