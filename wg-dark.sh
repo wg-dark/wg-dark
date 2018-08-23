@@ -68,7 +68,9 @@ update_loop() {
 cmd_start() {
   trap "echo start failed." ERR
   INTERFACE="$1"
-  cmd wg-quick up "$INTERFACE"
+
+  echo "fetching latest peer updates..."
+  wg show "$INTERFACE" > /dev/null || cmd wg-quick up "$INTERFACE"
   sleep 1
   update_loop
 }
