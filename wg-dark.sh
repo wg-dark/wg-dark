@@ -16,8 +16,8 @@ ARGS=( "$@" )
 INTERFACE=""
 
 cmd() {
-  echo -e "\e[96m$\e[0m $*" >&2
-  "$@ > /dev/null"
+  echo -e "\e[96m$\e[0m $*"
+  "$@"
 }
 
 die() {
@@ -26,7 +26,7 @@ die() {
 }
 
 debug() {
-  echo -e "\e[95m(debg)\e[0m $*" >&2
+  echo -e "\e[95m(debg)\e[0m $*"
 }
 
 info() {
@@ -73,7 +73,7 @@ update_loop() {
     local config=$(curl -s "http://10.13.37.1:1337/status" | jq -r .peers)
 
     if [ ! "$config" = "null" ]; then
-      cmd wg addconf "$INTERFACE" <(echo "$config")
+      cmd wg addconf "$INTERFACE" <(echo "$config") 2> /dev/null
       debug "updated peers."
       sleep 15
     else
@@ -88,7 +88,7 @@ cmd_start() {
   INTERFACE="$1"
 
   info "fetching latest peer updates..."
-  wg show "$INTERFACE" > /dev/null || cmd wg-quick up "$INTERFACE"
+  wg show "$INTERFACE" > /dev/null || cmd wg-quick up "$INTERFACE" 2> /dev/null
   sleep 1
   update_loop
 }
@@ -152,7 +152,7 @@ PersistentKeepalive = 25
 EOL
 
   info "bringing up interface..."
-  cmd wg-quick up "${host}"
+  cmd wg-quick up "${host}" 2> /dev/null
   sleep 1
   update_loop
 }

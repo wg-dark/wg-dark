@@ -7,11 +7,10 @@ const level   = require('level')
 const Wg      = require('./wg')
 
 const argv = require('minimist')(process.argv.slice(2))
-const cmd  = argv._.length < 1 ? 'help' : argv._[0]
-const host = argv._.length < 2 ? undefined : argv._[1]
+const host = argv._.length < 1 ? undefined : argv._[0]
 const port = isNaN(argv.port) ? 1337 : argv.port
-const wg = new Wg(host)
 
+const wg      = new Wg(host)
 const invites = level('./invites_db')
 
 process.on('SIGINT', async () => {
@@ -53,7 +52,7 @@ function serve(host, port, pubkey) {
     }
   })
 
-  app.post('/join', async function (req, res) {
+  app.post('/join', async (req, res) => {
     if (!req.body.invite || !req.body.pubkey) {
       res.status(400).send()
     }
@@ -75,7 +74,7 @@ function serve(host, port, pubkey) {
     }
   })
 
-  app.get('/status', async function (req, res) {
+  app.get('/status', async (req, res) => {
     if (isAuthed(req.ip)) {
       res.send({ peers : await wg.getPeersConfig() })
     } else {
@@ -92,13 +91,15 @@ function serve(host, port, pubkey) {
 }
 
 (async function() {
-  if (cmd === 'serve' && host) {
+  if (process.getuid() != 0) {
+    console.error('must be run as root.')
+  } else if (host) {
     await wg.createOrStart()
     const pubkey = await wg.pubkey()
     await serve(host, port, pubkey)
     console.log('http up')
   } else {
-    console.error('usage might one day go here')
+    console.error('usage:\n  node wg-dark-server [host]')
     process.exit(1)
   }
 })()
