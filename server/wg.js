@@ -82,7 +82,7 @@ class Wg {
   }
 
   async getPeers() {
-    return (await execAsync("wg", ["show", wg.iface, "allowed-ips"]))
+    return (await execAsync("wg", ["show", this.iface, "allowed-ips"]))
       .split('\n')
       .filter(line => line.length > 16)
       .map(peer => {

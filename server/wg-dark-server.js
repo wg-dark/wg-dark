@@ -27,6 +27,7 @@ function isAuthed(addr) {
 
 async function nextCidr(pubkey) {
   const peers = await wg.getPeers()
+
   if (peers.some(peer => peer.pubkey === pubkey)) {
     return peers.find(peer => peer.pubkey === pubkey).ip
   } else {

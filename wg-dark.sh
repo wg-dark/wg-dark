@@ -110,7 +110,7 @@ cmd_invite() {
 }
 
 cmd_join() {
-  trap "echo join failed." ERR
+  trap 'echo join failed, line $LINENO.' ERR
 
   local pieces=(${1//:/ })
   local host=${pieces[0]}
