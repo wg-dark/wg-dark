@@ -16,13 +16,25 @@ ARGS=( "$@" )
 INTERFACE=""
 
 cmd() {
-  echo "[#] $*" >&2
-  "$@"
+  echo -e "\e[96m$\e[0m $*" >&2
+  "$@" > /dev/null
 }
 
 die() {
-  echo "$PROGRAM: $*" >&2
+  echo -e "\e[91m(oops)\e[0m $*" >&2
   exit 1
+}
+
+debug() {
+  echo -e "\e[95m(debg)\e[0m $*" >&2
+}
+
+info() {
+  echo -e "\e[92m(info)\e[0m $*"
+}
+
+warn() {
+  echo -e "\e[93m(warn)\e[0m $*"
 }
 
 auto_su() {
@@ -31,7 +43,7 @@ auto_su() {
 
 cmd_usage() {
   cat >&2 <<-_EOF
-  Usage: $PROGRAM [ join INVITE | start INTERFACE ]
+  Usage: $PROGRAM [ join CODE | start INTERFACE | invite ]
 
     join INVITE - join a $PROGRAM net specified by the INVITE argument. The invite
       contains both a one-time invite code as well as the endpoint for the
@@ -43,6 +55,12 @@ cmd_usage() {
       previously joined. ex:
 
         $PROGRAM start cool.dark.net
+
+    invite - ask the coordinating server to generate an invite code which you can
+      give to your most elite friends. Note that you must be connected to the
+      network before running this.
+
+        $PROGRAM invite
 _EOF
 }
 
@@ -56,10 +74,10 @@ update_loop() {
 
     if [ ! "$config" = "null" ]; then
       cmd wg addconf "$INTERFACE" <(echo "$config")
-      echo "updated peers."
+      debug "updated peers."
       sleep 15
     else
-      echo "failed to get updated peers list."
+      warn "failed to get updated peers list."
       sleep 1
     fi
   done
@@ -69,34 +87,53 @@ cmd_start() {
   trap "echo start failed." ERR
   INTERFACE="$1"
 
-  echo "fetching latest peer updates..."
+  info "fetching latest peer updates..."
   wg show "$INTERFACE" > /dev/null || cmd wg-quick up "$INTERFACE"
   sleep 1
   update_loop
 }
 
+cmd_invite() {
+  if ! ip r | grep 10.13.37; then
+    die "it doesn't look like you're connected to a darknet."
+  fi
+
+  body=$(curl -s --fail 10.13.37.1:1337/invite)
+
+  if [ $? -ne 0 ]; then
+    die "invite request failed. are you even connected to a $PROGRAM net?"
+  fi
+
+  echo -e "\n\e[1;35m  Invite code:\e[0m"
+  echo -e "  $body"
+  echo -e "\n\e[90m  this code can only be redeemed once. share wisely.\e[0m"
+}
+
 cmd_join() {
   trap "echo join failed." ERR
+  INTERFACE="$host"
+
   local pieces=(${1//:/ })
   local host=${pieces[0]}
   local port=${pieces[1]}
   local code=${pieces[2]}
-  INTERFACE="$host"
-  echo  "endpoint $host:$port, code $code"
+  local body
+
+  debug "endpoint $host:$port, code $code"
 
   local privkey=$(wg genkey)
   local pubkey=$(echo "$privkey" | wg pubkey)
-  echo  "keypair $privkey/$pubkey"
 
   local request_body="{\"pubkey\":\"$pubkey\", \"invite\":\"$code\"}"
 
-  echo "submitting /join request"
-  local body
+  debug "submitting /join request"
   body=$(curl --fail -s -d "$request_body" -H "Content-Type: application/json" -X POST "https://$host:$port/join")
 
   if [ $? -ne 0 ]; then
     die "non-200 status on /join"
   fi
+
+  info "successfully reedeemed invite code."
 
   local server_pubkey=$(echo "$body" | jq -re .pubkey)
   local address=$(echo "$body" | jq -re .address)
@@ -114,19 +151,18 @@ Endpoint = ${host}:${port}
 PersistentKeepalive = 25
 EOL
 
+  info "bringing up interface..."
   cmd wg-quick up "${host}"
   sleep 1
   update_loop
 }
 
 if ! [ -x "$(command -v wg-quick)" ]; then
-  echo 'Error: wg-quick is not installed.' >&2
-  exit 1
+  die 'Error: wg-quick is not installed.'
 fi
 
 if ! [ -x "$(command -v jq)" ]; then
-  echo 'Error: jq is not installed.' >&2
-  exit 1
+  die 'Error: jq is not installed.'
 fi
 
 if [[ $# -eq 1 && ( $1 == --help || $1 == -h || $1 == help ) ]]; then
@@ -137,6 +173,8 @@ elif [[ $# -eq 2 && $1 == join ]]; then
 elif [[ $# -eq 2 && $1 == start ]]; then
   auto_su
   cmd_start "$2"
+elif [[ $1 == invite ]]; then
+  cmd_invite "$2"
 else
   cmd_usage
   exit 1
