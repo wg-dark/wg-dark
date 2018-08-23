@@ -19,22 +19,19 @@ process.on('SIGINT', async () => {
     process.exit(0)
 });
 
-const isAuthed = (addr) => {
+function isAuthed(addr) {
   return ip.cidrSubnet('10.13.37.0/24').contains(addr)
     || ip.isEqual(addr, '127.0.0.1')
     || ip.isEqual(addr, '::1')
 }
 
-function nextCidr(pubkey) {
-  return new Promise((res, rej) => {
-    wg.getPeers().then(peers => {
-      if (peers.some(peer => peer.pubkey === pubkey)) {
-        res(peers.find(peer => peer.pubkey === pubkey).ip)
-      } else {
-        res(`10.13.37.${peers.length + 2}/32`)
-      }
-    })
-  })
+async function nextCidr(pubkey) {
+  const peers = await wg.getPeers()
+  if (peers.some(peer => peer.pubkey === pubkey)) {
+    return peers.find(peer => peer.pubkey === pubkey).ip
+  } else {
+    return `10.13.37.${peers.length + 2}/32`
+  }
 }
 
 function serve(host, port, pubkey) {
@@ -45,6 +42,7 @@ function serve(host, port, pubkey) {
     if (isAuthed(req.ip)) {
       var invite = crypto.randomBytes(16).toString('hex')
       await invites.put(invite, '')
+
       console.log(`generated invite code ${invite}`)
       res.send(`${host}:${port}:${invite}`)
     } else {
@@ -55,6 +53,7 @@ function serve(host, port, pubkey) {
   app.post('/join', async (req, res) => {
     if (!req.body.invite || !req.body.pubkey) {
       res.status(400).send()
+      return
     }
 
     try {
