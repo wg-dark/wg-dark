@@ -15,6 +15,8 @@ PROGRAM="${0##*/}"
 ARGS=( "$@" )
 INTERFACE=""
 
+trap 'echo failure at line $LINENO.' ERR
+
 cmd() {
   echo -e "\e[96m$\e[0m $*"
   "$@"
@@ -65,7 +67,6 @@ _EOF
 }
 
 update_loop() {
-  trap "echo updating peers failed." ERR
   local res
   local body
   local http_status
@@ -84,7 +85,6 @@ update_loop() {
 }
 
 cmd_start() {
-  trap "echo start failed." ERR
   INTERFACE="$1"
 
   info "fetching latest peer updates..."
@@ -110,7 +110,6 @@ cmd_invite() {
 }
 
 cmd_join() {
-  trap 'echo join failed, line $LINENO.' ERR
 
   local pieces=(${1//:/ })
   local host=${pieces[0]}
