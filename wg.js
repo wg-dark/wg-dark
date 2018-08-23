@@ -55,7 +55,7 @@ class Wg {
   }
 
   async getPeersConfig() {
-    return (await execAsync("wg", ["showconf", wg.iface]))
+    return (await execAsync("wg", ["showconf", this.iface]))
       .split("\n")
       .filter((raw_line) => {
         const line = raw_line.trim()
