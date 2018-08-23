@@ -94,7 +94,7 @@ cmd_start() {
 }
 
 cmd_invite() {
-  if ! ip r | grep 10.13.37; then
+  if ! ip r | grep -q 10.13.37; then
     die "it doesn't look like you're connected to a darknet."
   fi
 
