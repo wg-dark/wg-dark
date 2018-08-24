@@ -137,6 +137,7 @@ cmd_join() {
   local server_pubkey=$(echo "$body" | jq -re .pubkey)
   local address=$(echo "$body" | jq -re .address)
 
+  cmd mkdir -p /etc/wireguard
   cat >/etc/wireguard/${host}.conf <<EOL
 [Interface]
 PrivateKey = ${privkey}
