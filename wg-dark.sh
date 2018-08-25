@@ -9,6 +9,7 @@ set -eE -o pipefail
 shopt -s extglob
 export LC_ALL=C
 
+# via https://git.zx2c4.com/WireGuard/tree/src/tools/wg-quick/darwin.bash
 SELF="${BASH_SOURCE[0]}"
 [[ $SELF == */* ]] || SELF="./$SELF"
 SELF="$(cd "${SELF%/*}" && pwd -P)/${SELF##*/}"
@@ -30,17 +31,11 @@ die() {
   exit 1
 }
 
-debug() {
-  echo -e "\e[95m(debg)\e[0m $*"
-}
+debug() { echo -e "\e[95m(debg)\e[0m $*" ; }
 
-info() {
-  echo -e "\e[92m(info)\e[0m $*"
-}
+info() { echo -e "\e[92m(info)\e[0m $*" ; }
 
-warn() {
-  echo -e "\e[93m(warn)\e[0m $*"
-}
+warn() { echo -e "\e[93m(warn)\e[0m $*" ; }
 
 auto_su() {
   [[ $UID == 0 ]] || exec sudo -p "$PROGRAM must be run as root. Please enter the password for %u to continue: " -- "$BASH" -- "$SELF" "${ARGS[@]}"
@@ -50,22 +45,17 @@ cmd_usage() {
   cat >&2 <<-_EOF
   Usage: $PROGRAM [ join CODE | start INTERFACE | invite ]
 
-    join INVITE - join a $PROGRAM net specified by the INVITE argument. The invite
-      contains both a one-time invite code as well as the endpoint for the
-      coordinating server. ex:
+    join INVITE - join a $PROGRAM net specified by the INVITE argument. ex:
 
         $PROGRAM join cool.dark.net:1337:2479773dc9a04d2efcd4e2772b872d5f
 
-    start INTERFACE - start up and re-sync the peers for a $PROGRAM net that you've
-      previously joined. ex:
+    start INTERFACE - start up and re-sync for a network that you've already joined. ex:
 
         $PROGRAM start cool.dark.net
 
     invite - ask the coordinating server to generate an invite code which you can
-      give to your most elite friends. Note that you must be connected to the
-      network before running this.
-
-        $PROGRAM invite
+      give to your most elite friends. You must be connected to the network before
+      running this.
 _EOF
 }
 
