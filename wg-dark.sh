@@ -127,9 +127,14 @@ cmd_join() {
 
   info "successfully reedeemed invite code."
 
-  IFS=: read -r address server_pubkey
+  debug "body $body"
 
-  sh -c 'umask 077; mkdir -p /etc/wireguard; cat > /etc/wireguard/${host}.conf' <<_EOF
+  IFS=: read -r address server_pubkey <<< "$body"
+
+  debug "address $address, pubkey: $server_pubkey"
+
+
+  sh -c "umask 077; mkdir -p /etc/wireguard; cat > /etc/wireguard/${host}.conf" <<_EOF
 [Interface]
 PrivateKey = ${privkey}
 Address = ${address}
