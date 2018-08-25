@@ -22,20 +22,20 @@ INTERFACE=""
 trap 'echo failure at line $LINENO.' ERR
 
 cmd() {
-  echo -e "\e[96m$\e[0m $*"
+  echo -e "\033[96m$\033[0m $*"
   "$@"
 }
 
 die() {
-  echo -e "\e[91m(oops)\e[0m $*" >&2
+  echo -e "\033[91m(oops)\033[0m $*" >&2
   exit 1
 }
 
-debug() { echo -e "\e[95m(debg)\e[0m $*" ; }
+debug() { echo -e "\033[95m(debg)\033[0m $*" ; }
 
-info() { echo -e "\e[92m(info)\e[0m $*" ; }
+info() { echo -e "\033[92m(info)\033[0m $*" ; }
 
-warn() { echo -e "\e[93m(warn)\e[0m $*" ; }
+warn() { echo -e "\033[93m(warn)\033[0m $*" ; }
 
 auto_su() {
   [[ $UID == 0 ]] || exec sudo -p "$PROGRAM must be run as root. Please enter the password for %u to continue: " -- "$BASH" -- "$SELF" "${ARGS[@]}"
@@ -97,9 +97,9 @@ cmd_invite() {
     die "invite request failed. are you even connected to a $PROGRAM net?"
   fi
 
-  echo -e "\n\e[1;35m  Invite code:\e[0m"
+  echo -e "\n\033[1;35m  Invite code:\033[0m"
   echo -e "  $body"
-  echo -e "\n\e[90m  this code can only be redeemed once. share wisely.\e[0m"
+  echo -e "\n\033[90m  this code can only be redeemed once. share wisely.\033[0m"
 }
 
 cmd_join() {
