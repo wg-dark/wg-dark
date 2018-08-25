@@ -69,9 +69,7 @@ _EOF
 }
 
 update_loop() {
-  local res
-  local body
-  local http_status
+  local res body http_status
   resolve_real_interface
   while true; do
     local config=$(curl -s "http://10.13.37.1:1337/status")
