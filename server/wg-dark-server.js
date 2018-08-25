@@ -41,11 +41,15 @@ function serve(host, port, pubkey) {
 
   app.get('/invite', async (req, res) => {
     if (isAuthed(req.ip)) {
+      try {
       var invite = crypto.randomBytes(16).toString('hex')
       await invites.put(invite, '')
 
       console.log(`generated invite code ${invite}`)
       res.send(`${host}:${port}:${invite}`)
+      } catch (e) {
+        console.error(e)
+      }
     } else {
       res.status(403).send()
     }
@@ -66,7 +70,7 @@ function serve(host, port, pubkey) {
       await invites.del(req.body.invite)
       console.log(`invite ${req.body.invite} redeemed by ${req.body.pubkey}`)
 
-      res.send({address: cidr, server: "10.13.37.1/32", pubkey})
+      res.send(`${cidr}:${pubkey}`)
 
     } catch (err) {
       if (err.notFound) res.status(403).send()
@@ -76,7 +80,7 @@ function serve(host, port, pubkey) {
 
   app.get('/status', async (req, res) => {
     if (isAuthed(req.ip)) {
-      res.send({ peers : await wg.getPeersConfig() })
+      res.send(await wg.getPeersConfig())
     } else {
       res.status(403).send()
     }
@@ -103,3 +107,4 @@ function serve(host, port, pubkey) {
     process.exit(1)
   }
 })()
+

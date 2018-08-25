@@ -71,7 +71,7 @@ update_loop() {
   local body
   local http_status
   while true; do
-    local config=$(curl -s "http://10.13.37.1:1337/status" | jq -r .peers)
+    local config=$(curl -s "http://10.13.37.1:1337/status")
 
     if [ ! "$config" = "null" ]; then
       cmd wg addconf "$INTERFACE" <(echo "$config") 2> /dev/null
@@ -134,11 +134,9 @@ cmd_join() {
 
   info "successfully reedeemed invite code."
 
-  local server_pubkey=$(echo "$body" | jq -re .pubkey)
-  local address=$(echo "$body" | jq -re .address)
+  IFS=: read -r address server_pubkey
 
-  cmd mkdir -p /etc/wireguard
-  cat >/etc/wireguard/${host}.conf <<EOL
+  sh -c 'umask 077; mkdir -p /etc/wireguard; cat > /etc/wireguard/${host}.conf' <<_EOF
 [Interface]
 PrivateKey = ${privkey}
 Address = ${address}
@@ -149,7 +147,7 @@ PublicKey = ${server_pubkey}
 AllowedIPs = 10.13.37.1/24
 Endpoint = ${host}:${port}
 PersistentKeepalive = 25
-EOL
+_EOF
 
   info "bringing up interface..."
   cmd wg-quick up "${host}" 2> /dev/null
@@ -159,10 +157,6 @@ EOL
 
 if ! [ -x "$(command -v wg-quick)" ]; then
   die 'Error: wg-quick is not installed.'
-fi
-
-if ! [ -x "$(command -v jq)" ]; then
-  die 'Error: jq is not installed.'
 fi
 
 if [[ $# -eq 1 && ( $1 == --help || $1 == -h || $1 == help ) ]]; then
