@@ -18,6 +18,7 @@ export PATH="/usr/bin:/bin:/usr/sbin:/sbin:${SELF%/*}:$PATH"
 PROGRAM="${0##*/}"
 ARGS=( "$@" )
 INTERFACE=""
+REAL_INTERFACE=""
 
 trap 'echo failure at line $LINENO.' ERR
 
@@ -29,6 +30,14 @@ cmd() {
 die() {
   echo -e "\033[91m(oops)\033[0m $*" >&2
   exit 1
+}
+
+resolve_real_interface() {
+  if [[ $OSTYPE =~ ^(openbsd|darwin) ]]; then
+    REAL_INTERFACE=$(cat "/var/run/wireguard/$INTERFACE.name")
+  else
+    REAL_INTERFACE="$INTERFACE"
+  fi
 }
 
 debug() { echo -e "\033[95m(debg)\033[0m $*" ; }
@@ -63,11 +72,12 @@ update_loop() {
   local res
   local body
   local http_status
+  resolve_real_interface
   while true; do
     local config=$(curl -s "http://10.13.37.1:1337/status")
 
     if [ ! "$config" = "null" ]; then
-      cmd wg addconf "$INTERFACE" <(echo "$config") 2> /dev/null
+      cmd wg addconf "$REAL_INTERFACE" <(echo "$config") 2> /dev/null
       debug "updated peers."
       sleep 15
     else
@@ -81,7 +91,8 @@ cmd_start() {
   INTERFACE="$1"
 
   info "fetching latest peer updates..."
-  wg show "$INTERFACE" > /dev/null || cmd wg-quick up "$INTERFACE" 2> /dev/null
+  resolve_real_interface
+  wg show "$REAL_INTERFACE" > /dev/null || cmd wg-quick up "$INTERFACE" 2> /dev/null
   sleep 1
   update_loop
 }
