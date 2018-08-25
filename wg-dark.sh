@@ -9,8 +9,11 @@ set -eE -o pipefail
 shopt -s extglob
 export LC_ALL=C
 
-SELF="$(readlink -f "${BASH_SOURCE[0]}")"
-export PATH="${SELF%/*}:$PATH"
+SELF="${BASH_SOURCE[0]}"
+[[ $SELF == */* ]] || SELF="./$SELF"
+SELF="$(cd "${SELF%/*}" && pwd -P)/${SELF##*/}"
+
+export PATH="/usr/bin:/bin:/usr/sbin:/sbin:${SELF%/*}:$PATH"
 PROGRAM="${0##*/}"
 ARGS=( "$@" )
 INTERFACE=""
